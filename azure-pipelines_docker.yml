@@ -1,0 +1,66 @@
+trigger:
+- main
+- develop
+- feature/*
+- bugfix/*
+
+pool:
+  name: 'demo'
+
+variables:
+  repository: 'walmartpayment'
+
+stages:
+- stage: 'Build'
+  jobs:
+  - job: 'DockerBuild'
+    steps:
+      # - script: dotnet build --configuration $(buildConfiguration)
+    #   displayName: 'dotnet build $(buildConfiguration)'
+
+    # - script: dotnet publish -f $(dotNetFramework) -c $(buildConfiguration) -o $(Build.ArtifactStagingDirectory)
+    #   displayName: Publish Project 
+
+    # - task: Npm@1
+    #   displayName: 'Client Tests'
+    #   inputs:
+    #     command: 'custom'
+    #     workingDir: 'ClientApp'
+    #     customCommand: 'run test'
+    
+    # - task: PublishBuildArtifacts@1
+    #   inputs:
+    #     PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+    #     ArtifactName: 'drop'
+    #     publishLocation: 'Container'
+    - task: Docker@2
+      inputs:
+        containerRegistry: 'ACRDocker'
+        repository: '$(repository)'
+        command: 'buildAndPush'
+        Dockerfile: '**/Dockerfile'
+        tags: |         
+         $(Build.BuildNumber)
+
+- stage: 'Deploy'
+  jobs:
+  - deployment: ""
+    displayName: Deploy to AKS
+ 
+    environment: 'Dev'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+            - checkout: self
+          
+            - task: KubernetesManifest@0
+              displayName: Deploy
+              inputs:
+                kubernetesServiceConnection: 'k8swalmart'
+                action: deploy
+                namespace: walmart
+                manifests: deployment-azure.yaml
+                containers: |
+                  azacrshared.azurecr.io/walmartpayment:$(Build.BuildNumber)
+                arguments: '-n=walmart'

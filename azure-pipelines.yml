@@ -1,6 +1,5 @@
 trigger:
-- develop
-- feature/*
+- master
 
 resources:
 - repo: self
